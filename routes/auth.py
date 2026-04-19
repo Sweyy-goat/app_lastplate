@@ -1,169 +1,164 @@
-from flask import Blueprint, request, jsonify, session, render_template, redirect
-from utils.db import mysql
-from utils.security import hash_password, verify_password
-from app import limiter
-
-auth_bp = Blueprint("auth", __name__)
-
-# ================= USER PAGES =================
-@auth_bp.route("/login")
-@limiter.limit("5 per minute")
-def user_login_page():
-    return render_template("auth/user_login.html")
-
-@auth_bp.route("/signup")
-def user_signup_page():
-    return render_template("auth/user_signup.html")
-
-# ================= RESTAURANT PAGE =================
-@auth_bp.route("/restaurant/login")
-def restaurant_login_page():
-    return render_template("auth/restaurant_login.html")
-
-# ================= USER SIGNUP =================
+from flask import Flask, request, jsonify
+from flask_jwt_extended import (
+    JWTManager, create_access_token,
+    jwt_required, get_jwt_identity
+)
+import MySQLdb
 import MySQLdb.cursors
+import math
+from datetime import datetime, timedelta
 
-# ================= USER PROFILE API =================
-@auth_bp.route("/api/user/profile")
-def user_profile():
-    if "user_id" not in session:
-        return jsonify({"error": "Unauthorized"}), 401
+app = Flask(__name__)
 
-    cur = mysql.connection.cursor(MySQLdb.cursors.DictCursor)
-    cur.execute("""
-        SELECT name, email, mobile
-        FROM users
-        WHERE id = %s
-    """, (session["user_id"],))
+# ================= CONFIG =================
+app.config["JWT_SECRET_KEY"] = "super-secret-key"
+app.config["JWT_ACCESS_TOKEN_EXPIRES"] = 3600
 
-    user = cur.fetchone()
-    return jsonify(user)
+jwt = JWTManager(app)
 
+# ================= DB CONFIG =================
+db = MySQLdb.connect(
+    host="localhost",
+    user="root",
+    passwd="password",
+    db="your_db",
+    cursorclass=MySQLdb.cursors.DictCursor
+)
 
-# ================= USER ORDER HISTORY API =================
-@auth_bp.route("/api/user/orders")
-def user_orders():
-    if "user_id" not in session:
-        return jsonify([])
+# ================= HELPER =================
+def get_cursor():
+    return db.cursor()
 
-    cur = mysql.connection.cursor(MySQLdb.cursors.DictCursor)
-    cur.execute("""
-        SELECT
-            f.name AS food,
-            o.quantity,
-            o.total_amount,
-            o.status
-        FROM orders o
-        JOIN foods f ON o.food_id = f.id
-        WHERE o.user_id = %s
-        ORDER BY o.id DESC
-    """, (session["user_id"],))
+# ================= AUTH =================
 
-    return jsonify(cur.fetchall())
+# 🔐 SIGNUP
+@app.route("/api/user/signup", methods=["POST"])
+def signup():
+    try:
+        data = request.json
+        name = data.get("name")
+        email = data.get("email")
+        mobile = data.get("mobile")
+        password = data.get("password")
 
-# ================= USER SIGNUP =================
-@auth_bp.route("/api/user/signup", methods=["POST"])
-def user_signup():
-    data = request.json
+        if not all([name, email, mobile, password]):
+            return jsonify({"status": "error", "message": "All fields required"}), 400
 
-    name = data.get("name")
-    email = data.get("email")          # ✅ FIX
-    mobile = data.get("mobile")
-    password = data.get("password")
+        cur = get_cursor()
 
-    if not name or not email or not mobile or not password:
-        return jsonify({"error": "All fields required"}), 400
+        cur.execute("SELECT id FROM users WHERE email=%s", (email,))
+        if cur.fetchone():
+            return jsonify({"status": "error", "message": "Email exists"}), 400
 
-    cur = mysql.connection.cursor()
+        cur.execute("SELECT id FROM users WHERE mobile=%s", (mobile,))
+        if cur.fetchone():
+            return jsonify({"status": "error", "message": "Mobile exists"}), 400
 
-    # ❌ Check duplicate email
-    cur.execute("SELECT id FROM users WHERE email=%s", (email,))
-    if cur.fetchone():
-        return jsonify({"error": "Email already exists"}), 400
+        cur.execute("""
+            INSERT INTO users (name, email, mobile, password_hash)
+            VALUES (%s, %s, %s, %s)
+        """, (name, email, mobile, password))  # ⚠️ hash in real app
 
-    # ❌ Check duplicate mobile
-    cur.execute("SELECT id FROM users WHERE mobile=%s", (mobile,))
-    if cur.fetchone():
-        return jsonify({"error": "Mobile already exists"}), 400
+        db.commit()
 
-    password_hash = hash_password(password)  # ✅ FIX
+        user_id = cur.lastrowid
+        cur.close()
 
-    cur.execute("""
-        INSERT INTO users (name, email, mobile, password_hash)
-        VALUES (%s, %s, %s, %s)
-    """, (
-        name,
-        email,
-        mobile,
-        password_hash
-    ))
+        token = create_access_token(identity={"id": user_id, "role": "user"})
 
-    mysql.connection.commit()
+        return jsonify({"status": "success", "token": token})
 
-    return jsonify({"success": True})
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
 
 
-# ================= USER LOGIN =================
-@auth_bp.route("/api/user/login", methods=["POST"])
-def user_login():
-    data = request.json
-    mobile = data.get("mobile")
-    password = data.get("password")
+# 🔐 LOGIN
+@app.route("/api/user/login", methods=["POST"])
+def login():
+    try:
+        data = request.json
+        mobile = data.get("mobile")
+        password = data.get("password")
 
-    if not mobile or not password:
-        return jsonify({"error": "Missing credentials"}), 400
+        cur = get_cursor()
+        cur.execute("SELECT id, password_hash FROM users WHERE mobile=%s", (mobile,))
+        user = cur.fetchone()
+        cur.close()
 
-    cur = mysql.connection.cursor()
-    cur.execute(
-        "SELECT id, password_hash FROM users WHERE mobile=%s",
-        (mobile,)
-    )
-    user = cur.fetchone()
+        if not user or user["password_hash"] != password:
+            return jsonify({"status": "error", "message": "Invalid credentials"}), 401
 
-    if not user:
-        return jsonify({"error": "User not found"}), 401
+        token = create_access_token(identity={"id": user["id"], "role": "user"})
 
-    if not verify_password(user["password_hash"], password):
-        return jsonify({"error": "Invalid password"}), 401
+        return jsonify({"status": "success", "token": token})
 
-    session.clear()
-    session["user_id"] = user["id"]
-    session["role"] = "user"
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
 
-    return jsonify({"success": True})
 
-# ================= RESTAURANT LOGIN =================
-@auth_bp.route("/api/restaurant/login", methods=["POST"])
-def restaurant_login():
-    data = request.json
-    mobile = data.get("mobile")
-    password = data.get("password")
+# 👤 PROFILE
+@app.route("/api/user/profile", methods=["GET"])
+@jwt_required()
+def profile():
+    try:
+        user = get_jwt_identity()
 
-    if not mobile or not password:
-        return jsonify({"error": "Missing credentials"}), 400
+        cur = get_cursor()
+        cur.execute("SELECT name, email, mobile FROM users WHERE id=%s", (user["id"],))
+        data = cur.fetchone()
+        cur.close()
 
-    cur = mysql.connection.cursor()
-    cur.execute(
-        "SELECT id, password_hash FROM restaurants WHERE mobile=%s AND is_active=1",
-        (mobile,)
-    )
-    restaurant = cur.fetchone()
+        return jsonify({"status": "success", "data": data})
 
-    if not restaurant:
-        return jsonify({"error": "Restaurant not found"}), 401
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
 
-    if not verify_password(restaurant["password_hash"], password):
-        return jsonify({"error": "Invalid password"}), 401
 
-    session.clear()
-    session["restaurant_id"] = restaurant["id"]
-    session["role"] = "restaurant"
+# ================= FOODS =================
+@app.route("/api/foods", methods=["GET"])
+@jwt_required()
+def foods():
+    try:
+        cur = get_cursor()
 
-    return jsonify({"success": True})
+        ist_now = datetime.utcnow() + timedelta(hours=5, minutes=30)
+        time_now = ist_now.strftime('%H:%M:%S')
 
-# ================= LOGOUT =================
-@auth_bp.route("/logout")
-def logout():
-    session.clear()
-    return redirect("/login")
+        cur.execute("""
+        SELECT 
+            f.id, f.name, f.original_price, f.price, f.available_quantity,
+            r.name AS restaurant_name,
+            r.latitude, r.longitude
+        FROM foods f
+        JOIN restaurants r ON f.restaurant_id = r.id
+        WHERE f.is_active = 1 AND f.available_quantity > 0
+        """)
 
+        rows = cur.fetchall()
+        cur.close()
+
+        result = []
+
+        for f in rows:
+            price = float(f["price"])
+            mrp = float(f["original_price"] or price)
+
+            result.append({
+                "id": f["id"],
+                "name": f["name"],
+                "price": math.ceil(price * 1.15),
+                "mrp": math.ceil(mrp * 1.15),
+                "restaurant": f["restaurant_name"],
+                "latitude": f["latitude"],
+                "longitude": f["longitude"]
+            })
+
+        return jsonify({"status": "success", "data": result})
+
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+
+# ================= RUN =================
+if __name__ == "__main__":
+    app.run(debug=True)
