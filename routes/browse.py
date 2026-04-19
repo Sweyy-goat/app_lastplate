@@ -1,37 +1,24 @@
-from flask import Blueprint, render_template, session, redirect, jsonify
+from flask import Blueprint, jsonify
 from utils.db import mysql
 import MySQLdb.cursors
 import math
 from datetime import datetime, timedelta
+from flask_jwt_extended import jwt_required, get_jwt_identity
 
 browse_bp = Blueprint("browse", __name__)
 
-@browse_bp.route("/browse-entry")
-def browse_entry():
-    return redirect("/browse")
-@browse_bp.route("/browse")
-def browse_page():
-    return render_template("user/browse.html")
-@browse_bp.route("/api/check-auth")
-def check_auth():
-    if "user_id" in session:
-        return jsonify({"logged_in": True})
-    return jsonify({"logged_in": False})
-
-@browse_bp.route("/api/foods")
+# ================= FOOD LIST API =================
+@browse_bp.route("/api/foods", methods=["GET"])
 def food_list():
     cur = mysql.connection.cursor(MySQLdb.cursors.DictCursor)
 
-    # Convert UTC → IST
     ist_now = datetime.utcnow() + timedelta(hours=5, minutes=30)
     current_time_ist = ist_now.strftime('%H:%M:%S')
 
-    # UPDATED QUERY: Added f.original_price to the SELECT list
     query = """
     SELECT 
         f.id, f.name, f.original_price, f.price, f.available_quantity,
-        f.id, f.name, f.original_price, f.price, f.available_quantity,f.food_type,
-        f.pickup_start, f.pickup_end,
+        f.food_type, f.pickup_start, f.pickup_end,
         r.name AS restaurant_name,
         r.address AS restaurant_address,
         r.short_address AS restaurant_short_address,
@@ -70,43 +57,48 @@ def food_list():
 
     foods = []
     for f in rows:
-        # The price set by the restaurant in the dashboard
-        restaurant_discounted_price = float(f["price"])
+        restaurant_price = float(f["price"])
+        raw_original = float(f["original_price"]) if f.get("original_price") and f["original_price"] > 0 else restaurant_price
 
-        # Original price from DB (e.g., 200)
-        # Fallback to restaurant_price if original_price is missing or 0
-        raw_original = float(f["original_price"]) if f.get("original_price") and f["original_price"] > 0 else restaurant_discounted_price
-
-        # Your Platform Selling Price (The price user sees and pays: 180 * 1.15 = 207)
-        platform_selling_price = math.ceil(restaurant_discounted_price * 1.15)
-
-        # Final Display MRP (The strike-through: 200 * 1.15 = 230)
-        # We apply the same 15% to the original price so the discount ratio stays consistent
+        platform_price = math.ceil(restaurant_price * 1.15)
         display_mrp = math.ceil(raw_original * 1.15)
 
         foods.append({
             "id": f["id"],
             "name": f["name"],
             "food_type": f["food_type"],
-            "price": platform_selling_price,
+            "price": platform_price,
             "mrp": display_mrp,
             "available_quantity": f["available_quantity"],
             "restaurant_name": f["restaurant_name"],
             "restaurant_address": f["restaurant_address"],
             "restaurant_short_address": f.get("restaurant_short_address") or "",
             "minutes_left": max(0, int(f["minutes_left"])),
-
-    # 🔥 ADD THIS
             "latitude": f["latitude"],
             "longitude": f["longitude"]
-})
-    return jsonify({"foods": foods})
-@browse_bp.route("/walkin")
-@browse_bp.route("/walkin")
-def walkin_list():
-    if "user_id" not in session or session.get("role") != "user":
-        return redirect("/login")
+        })
 
+    return jsonify({
+        "status": "success",
+        "data": foods
+    })
+
+
+# ================= CHECK AUTH =================
+@browse_bp.route("/api/check-auth", methods=["GET"])
+@jwt_required()
+def check_auth():
+    return jsonify({
+        "status": "success",
+        "logged_in": True,
+        "user_id": get_jwt_identity()
+    })
+
+
+# ================= WALK-IN RESTAURANTS =================
+@browse_bp.route("/api/walkin", methods=["GET"])
+@jwt_required()
+def walkin_list():
     cur = mysql.connection.cursor(MySQLdb.cursors.DictCursor)
 
     cur.execute("""
@@ -115,19 +107,22 @@ def walkin_list():
         JOIN restaurant_scenes s ON s.restaurant_id = r.id
         GROUP BY r.id
     """)
+
     restaurants = cur.fetchall()
     cur.close()
 
-    return render_template("user/walkin_list.html", restaurants=restaurants)
+    return jsonify({
+        "status": "success",
+        "data": restaurants
+    })
 
-@browse_bp.route("/restaurant/<int:rid>/walkin")
+
+# ================= WALK-IN VIEW =================
+@browse_bp.route("/api/restaurant/<int:rid>/walkin", methods=["GET"])
+@jwt_required()
 def walkin_view(rid):
-    if "user_id" not in session or session.get("role") != "user":
-        return redirect("/login")
-
     cur = mysql.connection.cursor(MySQLdb.cursors.DictCursor)
 
-    # Get scene
     cur.execute("""
         SELECT id, image_url 
         FROM restaurant_scenes 
@@ -138,17 +133,22 @@ def walkin_view(rid):
 
     if not scene:
         cur.close()
-        return "No Walk-In scene found for this restaurant."
+        return jsonify({
+            "status": "error",
+            "message": "No walk-in scene found"
+        }), 404
 
-    # Get hotspots
     cur.execute("""
         SELECT pitch, yaw, seat_number
         FROM restaurant_hotspots
         WHERE scene_id = %s
     """, (scene["id"],))
     hotspots = cur.fetchall()
+
     cur.close()
 
-    return render_template("user/walkin_view.html",
-                           scene=scene,
-                           hotspots=hotspots)
+    return jsonify({
+        "status": "success",
+        "scene": scene,
+        "hotspots": hotspots
+    })
