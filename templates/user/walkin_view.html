@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Virtual Walk-In</title>
+
+    <script src="https://cdn.jsdelivr.net/npm/pannellum/build/pannellum.js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/pannellum/build/pannellum.css" />
+
+    <style>
+        body { margin:0; font-family:Arial; }
+        #panorama { width:100%; height:100vh; }
+        .seat-popup {
+            position:fixed; bottom:20px; left:50%;
+            transform:translateX(-50%);
+            background:black; color:white;
+            padding:12px 20px; border-radius:10px;
+            font-size:16px; display:none;
+        }
+    </style>
+</head>
+
+<body>
+
+<div id="panorama"></div>
+
+<div id="seatPopup" class="seat-popup"></div>
+
+<script>
+    const viewer = pannellum.viewer('panorama', {
+        type: "equirectangular",
+        autoLoad: true,
+        showControls: true,
+        panorama: "{{ scene.image_url }}",
+        hotSpots: [
+            {% for h in hotspots %}
+            {
+                pitch: {{ h.pitch }},
+                yaw: {{ h.yaw }},
+                type: "info",
+                text: "Seat {{ h.seat_number }}",
+                clickHandlerFunc: () => selectSeat({{ h.seat_number }})
+            },
+            {% endfor %}
+        ]
+    });
+
+    function selectSeat(seat) {
+        const b = document.getElementById('seatPopup');
+        b.style.display = 'block';
+        b.innerHTML = `Seat ${seat} selected ✔ <br><a href="/reserve-seat/${seat}" style="color:yellow">Reserve</a>`;
+        
+        setTimeout(() => b.style.display = 'none', 4000);
+    }
+</script>
+
+</body>
+</html>

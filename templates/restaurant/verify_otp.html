@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Verify Pickup | Last Plate Terminal</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<style>
+:root {
+  --bg: #05070c;
+  --card: #0f172a;
+  --glass: rgba(255, 255, 255, .03);
+  --text: #e5e7eb;
+  --muted: #94a3b8;
+  --accent: #22c55e;
+  --danger: #ef4444;
+  --glow: rgba(34, 197, 94, .3);
+  --blue-glow: rgba(59, 130, 246, 0.4);
+}
+
+* { box-sizing: border-box; font-family: 'Inter', system-ui, -apple-system, sans-serif; }
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background: radial-gradient(circle at top, #0b1220, #020617 80%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text);
+  overflow: hidden;
+}
+
+/* ===== CARD CORE ===== */
+.card {
+  width: 420px;
+  max-width: 94%;
+  padding: 32px;
+  border-radius: 32px;
+  background: linear-gradient(180deg, var(--card), #020617);
+  box-shadow: 0 50px 100px rgba(0,0,0,0.9), inset 0 0 0 1px rgba(255,255,255,0.05);
+  position: relative;
+  overflow: hidden;
+  z-index: 10;
+}
+
+/* Background Pulse */
+.card::before {
+  content: "";
+  position: absolute;
+  inset: -50%;
+  background: radial-gradient(circle, var(--glow), transparent 70%);
+  opacity: 0.15;
+  animation: rotate 12s infinite linear;
+  pointer-events: none;
+}
+
+@keyframes rotate { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+
+/* ===== HERO IMAGE ===== */
+.hero {
+  height: 140px;
+  border-radius: 20px;
+  background: linear-gradient(0deg, rgba(2,6,23,0.9), transparent),
+              url("https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&w=900&q=80");
+  background-size: cover;
+  background-position: center;
+  margin: 20px 0;
+  border: 1px solid rgba(255,255,255,0.08);
+}
+
+/* ===== INPUT STYLING ===== */
+.input-wrap { margin-bottom: 24px; text-align: center; }
+label { font-size: 11px; text-transform: uppercase; letter-spacing: 2px; color: var(--muted); display: block; margin-bottom: 12px; }
+
+input {
+  width: 100%;
+  padding: 18px;
+  border-radius: 18px;
+  border: 2px solid rgba(255,255,255,0.05);
+  background: rgba(0,0,0,0.4);
+  color: #fff;
+  font-size: 32px;
+  font-weight: 700;
+  text-align: center;
+  letter-spacing: 10px;
+  transition: all 0.3s ease;
+}
+
+input:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 25px var(--glow);
+  transform: translateY(-2px);
+}
+
+/* ===== BUTTONS ===== */
+button {
+  width: 100%;
+  padding: 18px;
+  border-radius: 18px;
+  border: none;
+  font-size: 16px;
+  font-weight: 800;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.btn-primary {
+  background: linear-gradient(135deg, #22c55e, #10b981);
+  color: #052e16;
+  box-shadow: 0 10px 30px var(--glow);
+}
+
+.btn-primary:hover { transform: translateY(-3px); box-shadow: 0 15px 40px var(--glow); filter: brightness(1.1); }
+.btn-primary:active { transform: translateY(0); }
+
+.btn-handover {
+  background: linear-gradient(135deg, #3b82f6, #2563eb);
+  color: white;
+  margin-top: 20px;
+  box-shadow: 0 10px 25px var(--blue-glow);
+  position: relative;
+  overflow: hidden;
+}
+
+/* ===== SUCCESS OVERLAY ===== */
+.success-screen {
+  position: absolute;
+  inset: 0;
+  background: var(--bg);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  display: none;
+  animation: fadeIn 0.4s ease forwards;
+}
+
+.shield-icon {
+  width: 100px;
+  height: 100px;
+  border-radius: 50%;
+  background: var(--accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 0 50px var(--glow);
+  animation: bounceIn 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+@keyframes bounceIn { from { transform: scale(0); } to { transform: scale(1); } }
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+/* ===== TOAST ===== */
+#toast {
+  position: fixed;
+  top: 20px;
+  background: var(--danger);
+  color: white;
+  padding: 12px 24px;
+  border-radius: 12px;
+  font-weight: 600;
+  display: none;
+  animation: slideDown 0.3s ease;
+  z-index: 1000;
+}
+
+@keyframes slideDown { from { transform: translateY(-100%); } to { transform: translateY(0); } }
+
+.result-area {
+  margin-top: 25px;
+  padding: 20px;
+  border-radius: 20px;
+  background: var(--glass);
+  border: 1px solid rgba(255,255,255,0.05);
+  display: none;
+  animation: slideUp 0.5s ease;
+}
+
+@keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+</style>
+</head>
+<body>
+
+<div id="toast"></div>
+
+<div class="card">
+  <div class="success-screen" id="successScreen">
+    <div class="shield-icon">
+      <svg width="50" height="50" fill="none" stroke="#052e16" stroke-width="3" viewBox="0 0 24 24">
+        <path d="M5 13l4 4L19 7" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+    </div>
+    <h2 style="color: var(--accent); margin-top: 24px;">Order Picked Up!</h2>
+    <p style="color: var(--muted); font-size: 14px;">Inventory has been updated.</p>
+  </div>
+
+  <div class="header" style="text-align: center;">
+    <h2 style="margin:0; font-size: 24px;">Security Pickup</h2>
+    <p style="color: var(--muted); margin: 5px 0 0; font-size: 13px;">Restaurant Partner Portal</p>
+  </div>
+
+  <div class="hero"></div>
+
+  <div class="input-wrap">
+    <label>Enter Customer OTP</label>
+    <input type="text" id="otp" maxlength="6" placeholder="000000" autocomplete="off">
+  </div>
+
+  <button class="btn-primary" onclick="verifyOTP()" id="vBtn">Verify Security Code</button>
+
+  <div class="result-area" id="resultArea">
+    </div>
+
+  <div style="text-align: center; margin-top: 25px; font-size: 11px; color: var(--muted); opacity: 0.5;">
+    POWERED BY LAST PLATE SECURE TRANSIT
+  </div>
+</div>
+
+<script>
+function showToast(msg) {
+  const t = document.getElementById("toast");
+  t.innerText = msg;
+  t.style.display = "block";
+  setTimeout(() => t.style.display = "none", 3000);
+}
+
+function verifyOTP() {
+  const otp = document.getElementById("otp").value.trim();
+  const vBtn = document.getElementById("vBtn");
+
+  if(otp.length !== 6) {
+    showToast("Invalid Code Length");
+    return;
+  }
+
+  vBtn.innerText = "Verifying...";
+  vBtn.style.opacity = "0.7";
+
+  fetch("/restaurant/api/verify-otp", {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({ otp })
+  })
+  .then(r => r.json())
+  .then(d => {
+    vBtn.innerText = "Verify Security Code";
+    vBtn.style.opacity = "1";
+
+    if(d.success) {
+      const area = document.getElementById("resultArea");
+      area.style.display = "block";
+      area.innerHTML = `
+        <div style="text-align:center">
+          <div style="font-size:12px; color:var(--accent); font-weight:700; letter-spacing:1px">AUTHENTICATED</div>
+          <div style="font-size:20px; margin:10px 0; font-weight:800">${d.food}</div>
+          <div style="color:var(--muted); margin-bottom:15px">Qty: ${d.quantity} | Customer: ${d.customer}</div>
+          <button class="btn-handover" onclick="confirmHandover(${d.order_id})">
+            CONFIRM HANDOVER
+          </button>
+        </div>
+      `;
+    } else {
+      showToast(d.error || "OTP Verification Failed");
+    }
+  });
+}
+
+function confirmHandover(orderId) {
+  // We hit the backend to mark it as picked up
+  fetch("/restaurant/api/complete-order", {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({ order_id: orderId })
+  })
+  .then(r => r.json())
+  .then(d => {
+    if(d.success) {
+      document.getElementById("successScreen").style.display = "flex";
+      setTimeout(() => location.reload(), 2500);
+    } else {
+      showToast("Could not complete handover.");
+    }
+  });
+}
+</script>
+
+</body>
+</html>

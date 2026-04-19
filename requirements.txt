@@ -1,0 +1,7 @@
+Flask
+gunicorn
+flask-mysqldb
+mysqlclient
+python-dotenv
+razorpay
+Flask-Limiter

@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<title>Secure Checkout | Last Plate</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300;1,400;1,600&family=DM+Sans:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+<script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+<style>
+:root{--ink:#060d07;--card:#0f1a0d;--lush:#182e17;--green:#4caf6f;--lime:#a8e063;--gold:#d4a853;--text:#e8f0e4;--sub:#7a9a7e;--border:rgba(168,224,99,0.12);}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'DM Sans',sans-serif;background:var(--ink);color:var(--text);min-height:100vh;overflow-x:hidden;-webkit-font-smoothing:antialiased;}
+#bgCanvas{position:fixed;inset:0;z-index:0;pointer-events:none;}
+.leaf-wrap{position:fixed;inset:0;z-index:1;pointer-events:none;overflow:hidden;}
+.leaf{position:absolute;top:-80px;font-size:var(--sz,28px);opacity:0;animation:leaffall var(--dur,20s) var(--delay,0s) ease-in infinite;will-change:transform,opacity;}
+@keyframes leaffall{0%{transform:translateY(0) rotate(0deg) translateX(0);opacity:0;}5%{opacity:var(--op,0.45);}95%{opacity:var(--op,0.45);}100%{transform:translateY(110vh) rotate(var(--spin,540deg)) translateX(var(--sway,60px));opacity:0;}}
+.wm{position:fixed;bottom:-40px;right:-20px;z-index:1;font-family:'Cormorant Garamond',serif;font-size:clamp(100px,16vw,240px);font-weight:300;color:rgba(76,175,111,0.04);pointer-events:none;user-select:none;white-space:nowrap;line-height:1;}
+.universe{position:relative;z-index:2;min-height:100vh;display:flex;align-items:stretch;}
+/* LEFT */
+.panel-left{flex:1;display:flex;flex-direction:column;justify-content:space-between;padding:56px 48px 56px 64px;border-right:1px solid rgba(76,175,111,0.07);position:relative;}
+.panel-left::after{content:'';position:absolute;right:0;top:15%;bottom:15%;width:1px;background:linear-gradient(to bottom,transparent,rgba(76,175,111,0.22),transparent);}
+.brand-row{display:flex;align-items:center;gap:12px;animation:up 0.8s 0.1s both;}
+.brand-mark{width:38px;height:38px;border-radius:12px;background:linear-gradient(135deg,#1c4020,#4caf6f);display:flex;align-items:center;justify-content:center;font-size:20px;box-shadow:0 6px 20px rgba(76,175,111,0.3);}
+.brand-name{font-size:16px;font-weight:700;letter-spacing:-.3px;}
+.brand-name em{font-style:normal;color:var(--lime);}
+.big-headline{animation:up 0.9s 0.25s both;}
+.big-headline h1{font-family:'Cormorant Garamond',serif;font-size:clamp(44px,5.5vw,86px);font-weight:300;line-height:1.06;letter-spacing:-2px;}
+.big-headline h1 strong{font-weight:600;display:block;background:linear-gradient(135deg,var(--lime),var(--green));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}
+.big-headline p{margin-top:18px;font-size:14px;color:var(--sub);line-height:1.7;max-width:340px;}
+.stat-strip{display:flex;gap:36px;animation:up 1s 0.4s both;}
+.stat{display:flex;flex-direction:column;gap:4px;}
+.stat .n{font-family:'DM Mono',monospace;font-size:30px;font-weight:500;color:var(--lime);letter-spacing:-1.5px;}
+.stat .l{font-size:10px;text-transform:uppercase;letter-spacing:2px;color:var(--sub);}
+.pull-quote{animation:up 1s 0.55s both;}
+.pull-quote blockquote{font-family:'Cormorant Garamond',serif;font-style:italic;font-size:clamp(16px,1.6vw,22px);font-weight:300;line-height:1.55;color:rgba(232,240,228,0.75);border-left:2px solid rgba(168,224,99,0.35);padding-left:20px;max-width:420px;}
+.pull-quote cite{display:block;margin-top:10px;padding-left:22px;font-family:'DM Sans',sans-serif;font-style:normal;font-size:10px;letter-spacing:2.5px;text-transform:uppercase;color:var(--sub);}
+.facts{display:flex;flex-direction:column;gap:12px;animation:up 1s 0.7s both;}
+.fact{display:flex;align-items:center;gap:12px;font-size:13px;color:rgba(232,240,228,0.6);line-height:1.5;}
+.fact-orb{width:34px;height:34px;border-radius:10px;flex-shrink:0;background:rgba(76,175,111,0.09);border:1px solid rgba(76,175,111,0.18);display:flex;align-items:center;justify-content:center;font-size:15px;}
+/* CENTER */
+.center{width:500px;flex-shrink:0;display:flex;align-items:center;justify-content:center;padding:40px 20px;}
+.card{width:100%;background:var(--card);border-radius:32px;border:1px solid rgba(168,224,99,0.13);padding:38px 34px;position:relative;overflow:hidden;box-shadow:0 0 0 1px rgba(0,0,0,0.5),0 50px 100px -20px rgba(0,0,0,0.75),0 0 80px -30px rgba(76,175,111,0.12);animation:cardIn 1s cubic-bezier(0.16,1,0.3,1) both;}
+@keyframes cardIn{from{opacity:0;transform:translateY(36px) scale(0.97);}to{opacity:1;transform:none;}}
+.card::before{content:'';position:absolute;inset:0;pointer-events:none;background:linear-gradient(135deg,rgba(168,224,99,0.035) 0%,transparent 45%);}
+.card::after{content:'';position:absolute;top:0;left:25%;right:25%;height:1px;background:linear-gradient(to right,transparent,rgba(168,224,99,0.45),transparent);}
+.c-head{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:26px;animation:up 1s 0.3s both;}
+.eyebrow{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:3px;color:var(--sub);}
+.c-title{font-family:'Cormorant Garamond',serif;font-size:26px;font-weight:600;letter-spacing:-.5px;margin-top:2px;}
+.ssl-chip{display:flex;align-items:center;gap:6px;background:rgba(76,175,111,0.08);border:1px solid rgba(76,175,111,0.2);border-radius:24px;padding:7px 13px;font-size:11px;font-weight:600;color:var(--green);letter-spacing:.3px;flex-shrink:0;}
+.food-tile{position:relative;overflow:hidden;background:linear-gradient(135deg,rgba(168,224,99,0.04),rgba(76,175,111,0.025));border:1px solid var(--border);border-radius:20px;padding:16px;display:flex;gap:14px;align-items:center;margin-bottom:26px;cursor:pointer;transition:border-color 0.3s,box-shadow 0.3s,transform 0.3s;animation:up 1s 0.45s both;}
+.food-tile:hover{border-color:rgba(76,175,111,0.35);transform:translateY(-2px);box-shadow:0 16px 40px rgba(76,175,111,0.1);}
+.food-ribbon{position:absolute;top:0;right:0;background:linear-gradient(135deg,var(--lime),var(--green));color:#04100a;font-size:9px;font-weight:800;letter-spacing:1px;text-transform:uppercase;padding:5px 14px;border-radius:0 20px 0 12px;}
+.food-img{width:66px;height:66px;border-radius:14px;flex-shrink:0;background:#1a2818 url("https://images.unsplash.com/photo-1540189549336-e6e99c3679fe?auto=format&fit=crop&w=200&q=80") center/cover;box-shadow:0 8px 24px rgba(0,0,0,0.5);transition:transform 0.45s cubic-bezier(0.175,0.885,0.32,1.275);}
+.food-tile:hover .food-img{transform:scale(1.07) rotate(-1.5deg);}
+.food-meta{flex:1;min-width:0;}
+.food-meta .fname{font-size:16px;font-weight:700;letter-spacing:-.2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.food-meta .frest{font-size:12px;color:var(--sub);margin-top:3px;}
+.food-meta .ftag{display:inline-flex;align-items:center;gap:5px;margin-top:8px;background:rgba(212,168,83,0.09);border:1px solid rgba(212,168,83,0.2);border-radius:20px;padding:3px 10px;font-size:9px;font-weight:800;letter-spacing:.8px;text-transform:uppercase;color:var(--gold);}
+.food-price{text-align:right;flex-shrink:0;}
+.food-price .amt{font-family:'DM Mono',monospace;font-size:22px;font-weight:500;color:var(--lime);letter-spacing:-1px;}
+.food-price .per{font-size:10px;color:var(--sub);text-transform:uppercase;letter-spacing:1px;margin-top:2px;}
+.fld{margin-bottom:16px;}
+.fld.anim1{animation:up 1s 0.6s both;}
+.fld.anim2{animation:up 1s 0.65s both;}
+.fld label{display:block;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:2px;color:var(--sub);margin-bottom:7px;margin-left:2px;}
+.fld input{width:100%;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:14px;padding:14px 17px;color:var(--text);font-size:15px;font-family:'DM Sans',sans-serif;transition:all 0.3s;outline:none;}
+.fld input:focus{border-color:rgba(76,175,111,0.5);background:rgba(76,175,111,0.04);box-shadow:0 0 0 3px rgba(76,175,111,0.09),0 0 30px rgba(76,175,111,0.07);}
+.fld input::placeholder{color:rgba(122,154,126,0.45);}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+.invoice{background:rgba(255,255,255,0.018);border:1px dashed rgba(255,255,255,0.07);border-radius:18px;padding:18px 20px;animation:up 1s 0.75s both;}
+.inv-row{display:flex;justify-content:space-between;align-items:center;font-size:13px;color:var(--sub);padding:5px 0;}
+.inv-row .chip{background:rgba(212,168,83,0.1);border:1px solid rgba(212,168,83,0.2);color:var(--gold);font-size:9px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;border-radius:8px;padding:2px 7px;margin-left:6px;}
+.inv-row .val{font-family:'DM Mono',monospace;color:var(--text);}
+.inv-total{display:flex;justify-content:space-between;align-items:center;padding-top:14px;margin-top:8px;border-top:1px solid rgba(255,255,255,0.07);}
+.total-lbl{font-size:11px;text-transform:uppercase;letter-spacing:2px;color:var(--sub);}
+.total-val{font-family:'DM Mono',monospace;font-size:32px;font-weight:500;color:var(--lime);letter-spacing:-2px;}
+.total-val sup{font-size:16px;vertical-align:super;letter-spacing:0;}
+.pay-wrap{margin-top:22px;animation:up 1s 0.9s both;}
+.pay-btn{width:100%;height:66px;padding:0;background:transparent;border:none;cursor:pointer;position:relative;border-radius:18px;transition:transform 0.4s cubic-bezier(0.175,0.885,0.32,1.275);}
+.pay-btn:hover:not(:disabled){transform:translateY(-5px);}
+.pay-btn:active:not(:disabled){transform:translateY(-2px);}
+.pay-btn:disabled{opacity:.5;cursor:not-allowed;filter:grayscale(.4);transform:none!important;}
+.btn-bg{position:absolute;inset:0;border-radius:18px;background:linear-gradient(135deg,#2d7a3e 0%,#4caf6f 50%,#a8e063 100%);box-shadow:0 14px 50px rgba(76,175,111,0.45),0 0 0 1px rgba(168,224,99,0.2);transition:box-shadow 0.4s,filter 0.3s;}
+.pay-btn:hover:not(:disabled) .btn-bg{box-shadow:0 22px 70px rgba(76,175,111,0.6),0 0 0 1px rgba(168,224,99,0.35);filter:brightness(1.07);}
+.btn-sheen{position:absolute;inset:0;border-radius:18px;background:linear-gradient(to bottom,rgba(255,255,255,0.17) 0%,transparent 55%);pointer-events:none;}
+.btn-content{position:relative;height:100%;display:flex;align-items:center;justify-content:center;gap:10px;font-family:'DM Sans',sans-serif;font-size:16px;font-weight:700;color:#04110a;letter-spacing:.2px;}
+.trust{display:flex;align-items:center;justify-content:center;gap:14px;margin-top:16px;animation:up 1s 1.05s both;}
+.t-item{display:flex;align-items:center;gap:5px;font-size:11px;color:rgba(122,154,126,0.6);}
+.t-sep{width:3px;height:3px;background:rgba(122,154,126,0.25);border-radius:50%;}
+/* RIGHT */
+.panel-right{flex:1;display:flex;flex-direction:column;justify-content:space-between;padding:56px 64px 56px 48px;border-left:1px solid rgba(76,175,111,0.07);position:relative;}
+.panel-right::before{content:'';position:absolute;left:0;top:15%;bottom:15%;width:1px;background:linear-gradient(to bottom,transparent,rgba(76,175,111,0.2),transparent);}
+.r-section{animation:up 1s 0.5s both;}
+.r-eyebrow{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:3px;color:var(--green);margin-bottom:16px;display:block;}
+.steps{display:flex;flex-direction:column;}
+.step{display:flex;gap:16px;align-items:flex-start;}
+.step-l{display:flex;flex-direction:column;align-items:center;flex-shrink:0;}
+.step-orb{width:38px;height:38px;border-radius:50%;flex-shrink:0;background:var(--lush);border:1px solid rgba(76,175,111,0.25);display:flex;align-items:center;justify-content:center;font-size:17px;transition:border-color 0.3s,box-shadow 0.3s;}
+.step:hover .step-orb{border-color:rgba(76,175,111,0.6);box-shadow:0 0 18px rgba(76,175,111,0.18);}
+.step-line{width:1px;flex:1;min-height:18px;background:linear-gradient(to bottom,rgba(76,175,111,0.22),rgba(76,175,111,0.03));margin:4px 0;}
+.step-body{padding:8px 0 20px;}
+.step-title{font-size:13px;font-weight:600;color:var(--text);margin-bottom:4px;}
+.step-desc{font-size:12px;color:var(--sub);line-height:1.6;max-width:220px;}
+.live-ticker{display:flex;align-items:center;gap:10px;background:rgba(76,175,111,0.05);border:1px solid rgba(76,175,111,0.14);border-radius:16px;padding:14px 18px;}
+.ticker-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;background:var(--green);box-shadow:0 0 8px var(--green);animation:pulsedot 2s ease-in-out infinite;}
+@keyframes pulsedot{0%,100%{box-shadow:0 0 6px var(--green);}50%{box-shadow:0 0 18px var(--green);opacity:.7;}}
+.ticker-copy{font-size:13px;color:rgba(232,240,228,0.7);}
+.ticker-copy b{color:var(--lime);}
+.co2-lbl{display:flex;justify-content:space-between;font-size:12px;color:var(--sub);margin-bottom:8px;}
+.co2-lbl b{color:var(--lime);}
+.co2-track{height:6px;background:rgba(255,255,255,0.06);border-radius:100px;overflow:hidden;}
+.co2-bar{height:100%;width:0%;background:linear-gradient(to right,var(--green),var(--lime));border-radius:100px;transition:width 2.2s cubic-bezier(0.25,1,0.5,1);box-shadow:0 0 10px rgba(168,224,99,0.4);}
+.co2-note{font-size:11px;color:var(--sub);margin-top:8px;line-height:1.5;}
+@keyframes up{from{opacity:0;transform:translateY(22px);}to{opacity:1;transform:none;}}
+/* SUCCESS */
+.success-screen{position:fixed;inset:0;z-index:9999;background:rgba(4,9,5,0.97);display:flex;flex-direction:column;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:opacity 0.6s;}
+.success-screen.show{opacity:1;pointer-events:all;}
+.s-rings{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none;}
+.s-ring{position:absolute;border-radius:50%;border:1px solid rgba(76,175,111,0.25);animation:ringout 2.5s ease-out infinite;}
+.s-ring:nth-child(1){width:180px;height:180px;}
+.s-ring:nth-child(2){width:320px;height:320px;animation-delay:.5s;}
+.s-ring:nth-child(3){width:500px;height:500px;animation-delay:1s;}
+@keyframes ringout{from{opacity:.5;transform:scale(0.2);}to{opacity:0;transform:scale(1);}}
+.s-icon{font-size:72px;animation:popin 0.6s cubic-bezier(0.175,0.885,0.32,1.275) both;margin-bottom:22px;}
+@keyframes popin{from{transform:scale(0) rotate(-20deg);opacity:0;}to{transform:scale(1) rotate(0);opacity:1;}}
+.s-title{font-family:'Cormorant Garamond',serif;font-size:52px;font-weight:300;color:var(--lime);letter-spacing:-1.5px;text-align:center;animation:up 0.8s 0.3s both;}
+.s-sub{font-size:15px;color:var(--sub);margin-top:12px;text-align:center;max-width:320px;line-height:1.65;animation:up 0.8s 0.5s both;}
+@media(max-width:1280px){.panel-right{display:none;}.panel-left{max-width:300px;}}
+@media(max-width:920px){.panel-left{display:none;}.universe{justify-content:center;}.center{width:100%;max-width:500px;padding:24px 14px;}}
+@media(max-width:480px){.card{padding:30px 20px;border-radius:26px;}.row2{grid-template-columns:1fr;}}
+@keyframes spin{to{transform:rotate(360deg);}}
+</style>
+</head>
+<body>
+<canvas id="bgCanvas"></canvas>
+<div class="leaf-wrap" id="leafWrap"></div>
+<div class="wm">Rescue</div>
+<div class="success-screen" id="successScreen">
+  <div class="s-rings"><div class="s-ring"></div><div class="s-ring"></div><div class="s-ring"></div></div>
+  <div class="s-icon">🌿</div>
+  <div class="s-title">Meal Rescued.</div>
+  <div class="s-sub">You just saved a plate from waste. Your OTP is on its way. The planet thanks you — genuinely.</div>
+</div>
+<div class="universe">
+  <div class="panel-left">
+    <div class="brand-row">
+      <div class="brand-mark">🌿</div>
+      <div class="brand-name">Last<em>Plate</em></div>
+    </div>
+    <div class="big-headline">
+      <h1>Every meal<br><strong>has a story.</strong></h1>
+      <p>Yours is about to be one where someone chose the planet over convenience. That's rare. That's you.</p>
+    </div>
+    <div class="stat-strip">
+      <div class="stat"><span class="n" id="c1">0</span><span class="l">Meals rescued today</span></div>
+      <div class="stat"><span class="n" id="c2">0</span><span class="l">kg CO₂ avoided</span></div>
+    </div>
+    <div class="pull-quote">
+      <blockquote>"The most powerful act of environmentalism isn't a protest — it's a purchase that saves something real."</blockquote>
+      <cite>— Last Plate Manifesto</cite>
+    </div>
+    <div class="facts">
+      <div class="fact"><div class="fact-orb">🍳</div><span>Surplus food is cooked with the same care. It just needed someone to want it.</span></div>
+      <div class="fact"><div class="fact-orb">🌍</div><span>Food waste causes 8–10% of global greenhouse gases. One meal matters.</span></div>
+      <div class="fact"><div class="fact-orb">💚</div><span>When you pay here, you pay it forward — to the next generation.</span></div>
+    </div>
+  </div>
+  <div class="center">
+    <div class="card">
+      <div class="c-head">
+        <div>
+          <div class="eyebrow">Secure Checkout</div>
+          <div class="c-title">Complete Reservation</div>
+        </div>
+        <div class="ssl-chip">
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+          SSL Secured
+        </div>
+      </div>
+      <div class="food-tile">
+        <span class="food-ribbon">✦ Surplus</span>
+        <div class="food-img"></div>
+        <div class="food-meta">
+          <div class="fname">{{ food.name }}</div>
+          <div class="frest">🏪 {{ food.restaurant_name }}</div>
+          <span class="ftag">🌱 Rescued from waste</span>
+        </div>
+        <div class="food-price">
+          <div class="amt">₹{{ food.price }}</div>
+          <div class="per">/ plate</div>
+        </div>
+      </div>
+      <div class="fld anim1">
+        <label>Receipt &amp; OTP Email</label>
+        <input id="email" type="email" placeholder="you@example.com" required/>
+      </div>
+      <div class="row2">
+        <div class="fld anim2">
+          <label>Quantity</label>
+          <input id="qty" type="number" min="1" max="{{ food.available_quantity }}" value="1" oninput="calculate()"/>
+        </div>
+        <div class="fld anim2">
+          <label>Available</label>
+          <input type="text" value="{{ food.available_quantity }} plates left" readonly style="color:var(--sub);cursor:default"/>
+        </div>
+      </div>
+      <div class="invoice">
+        <div class="inv-row"><span>Subtotal</span><span id="subtotal" class="val">₹0</span></div>
+        <div class="inv-row"><span>Platform fee <span class="chip">15%</span></span><span id="service-fee" class="val">₹0</span></div>
+        <div class="inv-total">
+          <div class="total-lbl">Total Payable</div>
+          <div class="total-val"><sup>₹</sup><span id="grandtotal">0</span></div>
+        </div>
+      </div>
+      <div class="pay-wrap">
+        <button class="pay-btn" id="payBtn">
+          <div class="btn-bg"></div>
+          <div class="btn-sheen"></div>
+          <div class="btn-content" id="btnText">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+            Rescue This Meal
+          </div>
+        </button>
+      </div>
+      <div class="trust">
+        <div class="t-item"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>Razorpay</div>
+        <span class="t-sep"></span>
+        <div class="t-item">🌍 Carbon offset</div>
+        <span class="t-sep"></span>
+        <div class="t-item">⚡ Instant OTP</div>
+        <span class="t-sep"></span>
+        <div class="t-item">🔒 256-bit SSL</div>
+      </div>
+    </div>
+  </div>
+  <div class="panel-right">
+    <div class="r-section">
+      <span class="r-eyebrow">✦ How it works</span>
+      <div class="steps">
+        <div class="step"><div class="step-l"><div class="step-orb">🍳</div><div class="step-line"></div></div><div class="step-body"><div class="step-title">Chef prepares surplus</div><div class="step-desc">Same kitchen. Same passion. A meal that needed a home.</div></div></div>
+        <div class="step"><div class="step-l"><div class="step-orb">📲</div><div class="step-line"></div></div><div class="step-body"><div class="step-title">You reserve it here</div><div class="step-desc">This moment — paying right now — is the act of rescue. You're the hero.</div></div></div>
+        <div class="step"><div class="step-l"><div class="step-orb">🎫</div><div class="step-line"></div></div><div class="step-body"><div class="step-title">Collect with OTP</div><div class="step-desc">Show your code. Pick up your meal. Leave knowing you mattered.</div></div></div>
+        <div class="step"><div class="step-l"><div class="step-orb">🌱</div></div><div class="step-body"><div class="step-title">Planet breathes easier</div><div class="step-desc">No landfill. No methane. A beautiful chain reaction you started.</div></div></div>
+      </div>
+    </div>
+    <div class="r-section" style="animation-delay:.65s">
+      <div class="live-ticker">
+        <div class="ticker-dot"></div>
+        <div class="ticker-copy"><b id="liveCount">—</b> meals rescued in your city this week</div>
+      </div>
+    </div>
+    <div class="r-section" style="animation-delay:.8s">
+      <span class="r-eyebrow">✦ Your impact today</span>
+      <div class="co2-lbl"><span>CO₂ saved by this order</span><b id="co2Val">0 kg</b></div>
+      <div class="co2-track"><div class="co2-bar" id="co2Bar"></div></div>
+      <div class="co2-note">Equivalent to not driving <span id="kmVal">0</span> km. Every single plate counts.</div>
+    </div>
+  </div>
+</div>
+<script>
+(function(){
+  const canvas=document.getElementById('bgCanvas');
+  const ctx=canvas.getContext('2d');
+  let W,H,pts=[];
+  function resize(){W=canvas.width=window.innerWidth;H=canvas.height=window.innerHeight;}
+  window.addEventListener('resize',resize);resize();
+  for(let i=0;i<70;i++) pts.push({x:Math.random()*2000-200,y:Math.random()*900,r:Math.random()*1.8+0.4,vx:(Math.random()-.5)*.25,vy:-Math.random()*.35-.08,a:Math.random(),va:(Math.random()-.5)*.007,h:100+Math.random()*50});
+  function tick(){
+    ctx.clearRect(0,0,W,H);
+    pts.forEach(p=>{
+      p.x+=p.vx;p.y+=p.vy;p.a+=p.va;
+      if(p.a<=0||p.a>=1)p.va*=-1;
+      if(p.y<-10)p.y=H+10;
+      if(p.x<-20)p.x=W+20;
+      if(p.x>W+20)p.x=-20;
+      const al=Math.max(0,Math.min(1,p.a))*.5;
+      const g=ctx.createRadialGradient(p.x,p.y,0,p.x,p.y,p.r*5);
+      g.addColorStop(0,`hsla(${p.h},75%,65%,${al})`);
+      g.addColorStop(1,`hsla(${p.h},75%,65%,0)`);
+      ctx.beginPath();ctx.arc(p.x,p.y,p.r*5,0,Math.PI*2);ctx.fillStyle=g;ctx.fill();
+    });
+    requestAnimationFrame(tick);
+  }
+  tick();
+})();
+(function(){
+  const syms=['🍃','🌿','🍀','🌱','🍂'];
+  const wrap=document.getElementById('leafWrap');
+  for(let i=0;i<16;i++){
+    const l=document.createElement('span');l.className='leaf';
+    l.textContent=syms[i%syms.length];
+    const sz=14+Math.random()*26,dur=13+Math.random()*16,del=Math.random()*22;
+    const op=0.2+Math.random()*0.4,spin=360+Math.random()*500,sway=(Math.random()-.5)*110;
+    l.style.cssText=`left:${Math.random()*106-3}%;--sz:${sz}px;--dur:${dur}s;--delay:${del}s;--op:${op};--spin:${spin}deg;--sway:${sway}px;font-size:${sz}px`;
+    wrap.appendChild(l);
+  }
+})();
+function countUp(el,target,dur){
+  let s=null;
+  (function step(ts){
+    if(!s)s=ts;
+    const p=Math.min((ts-s)/dur,1);
+    el.textContent=Math.round(p*p*target).toLocaleString();
+    if(p<1)requestAnimationFrame(step);
+  })(performance.now());
+}
+window.addEventListener('DOMContentLoaded',function(){
+  countUp(document.getElementById('c1'),247,2400);
+  countUp(document.getElementById('c2'),1830,2800);
+  countUp(document.getElementById('liveCount'),431,2000);
+  setTimeout(function(){document.getElementById('co2Bar').style.width='72%';},900);
+});
+const BASE={{ food.price }};
+function calculate(){
+  const qty=parseInt(document.getElementById('qty').value)||0;
+  const sub=qty*BASE;
+  const total=Math.ceil(sub*1.15);
+  const fee=total-sub;
+  document.getElementById('subtotal').textContent='₹'+sub;
+  document.getElementById('service-fee').textContent='₹'+fee;
+  document.getElementById('grandtotal').textContent=total;
+  document.getElementById('co2Val').textContent=(qty*2.5).toFixed(1)+' kg';
+  document.getElementById('kmVal').textContent=Math.round(qty*2.5/0.21);
+  document.getElementById('co2Bar').style.width=Math.min(qty*20,96)+'%';
+}
+calculate();
+document.getElementById('payBtn').addEventListener('click',function(){
+  const email=document.getElementById('email').value.trim();
+  const qty=parseInt(document.getElementById('qty').value);
+  const btn=this,txt=document.getElementById('btnText');
+  if(!email){alert('Email required to receive your pickup OTP.');return;}
+  if(!qty||qty<=0){alert('Please enter a valid quantity.');return;}
+  btn.disabled=true;
+  txt.innerHTML='<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" style="animation:spin 0.8s linear infinite"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg> Connecting...';
+  fetch('/api/create-order',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({food_id:{{ food.id | tojson }},quantity:qty,email:email})})
+  .then(function(r){return r.json();})
+  .then(function(data){
+    if(data.error){alert(data.error);resetBtn();return;}
+    new Razorpay({
+      key:data.key,amount:data.amount,currency:'INR',
+      name:'Last Plate',description:'Rescue a meal. Save the planet.',
+      order_id:data.razorpay_order_id,
+      handler:function(resp){
+        txt.innerHTML='<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" style="animation:spin 0.8s linear infinite"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg> Verifying...';
+        fetch('/api/verify-payment',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(resp)})
+        .then(function(r){return r.json();})
+        .then(function(out){
+          if(out.success){
+            document.getElementById('successScreen').classList.add('show');
+            setTimeout(function(){location.href='/browse';},3500);
+          }else{alert('Verification failed. Contact support.');resetBtn();}
+        });
+      },
+      modal:{ondismiss:resetBtn},
+      theme:{color:'#4caf6f'}
+    }).open();
+  })
+  .catch(function(err){console.error(err);alert('Server connection failed.');resetBtn();});
+});
+function resetBtn(){
+  var btn=document.getElementById('payBtn'),txt=document.getElementById('btnText');
+  btn.disabled=false;
+  txt.innerHTML='<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg> Rescue This Meal';
+}
+</script>
+</body>
+</html>

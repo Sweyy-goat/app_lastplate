@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cities — LastPlate</title>
+
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;700;800&display=swap" rel="stylesheet">
+
+<style>
+:root {
+  --white:#fff;
+  --text:#1d1d1f;
+  --sub:#6e6e73;
+  --accent:#4f46e5;
+  --border:#e5e5e7;
+}
+
+body {
+  margin:0;
+  font-family:'Inter',sans-serif;
+  background:var(--white);
+  color:var(--text);
+}
+
+/* NAV (reuse your style) */
+nav {
+  height:52px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  padding:0 40px;
+  border-bottom:1px solid var(--border);
+}
+
+.logo {
+  font-weight:700;
+  font-size:18px;
+}
+.logo span { color:var(--accent); }
+
+/* HERO */
+.hero {
+  text-align:center;
+  padding:100px 20px 40px;
+}
+
+.hero h1 {
+  font-size:clamp(2.5rem,5vw,4rem);
+  font-weight:800;
+  letter-spacing:-0.04em;
+}
+
+.hero p {
+  margin-top:12px;
+  color:var(--sub);
+  font-size:16px;
+}
+
+/* GRID */
+.grid {
+  max-width:900px;
+  margin:60px auto 120px;
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(180px,1fr));
+  gap:20px;
+  padding:0 20px;
+}
+
+/* CARD */
+.card {
+  border:1px solid var(--border);
+  border-radius:18px;
+  padding:28px;
+  text-align:center;
+  font-size:18px;
+  font-weight:500;
+  transition:all 0.25s ease;
+  cursor:pointer;
+}
+
+.card:hover {
+  border-color:var(--accent);
+  transform:translateY(-4px);
+  color:var(--accent);
+}
+</style>
+</head>
+
+<body>
+
+<nav>
+  <div class="logo">Last<span>Plate</span></div>
+  <a href="/" style="text-decoration:none;color:#6e6e73;">Home</a>
+</nav>
+
+<div class="hero">
+  <h1>Cities we serve.</h1>
+  <p>Available locations where meals are rescued nightly.</p>
+</div>
+
+<div class="grid">
+  {% for city in cities %}
+    <div class="card">{{ city.name }}</div>
+  {% endfor %}
+</div>
+
+</body>
+</html>
