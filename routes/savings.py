@@ -1,17 +1,19 @@
-from flask import Blueprint, jsonify, session, render_template
+from flask import Blueprint, jsonify
+from flask_jwt_extended import jwt_required, get_jwt_identity
 from utils.db import mysql
 import MySQLdb.cursors
 from datetime import date, timedelta
 
 savings_bp = Blueprint("savings", __name__)
 
-@savings_bp.route('/savings')
-def savings_page():
-    return render_template('user/savings.html')
-
+# ================= API =================
 @savings_bp.route('/api/savings', methods=['GET'])
+@jwt_required() # Protect the route for mobile users
 def get_savings():
-    user_id = session.get('user_id', 1)
+    # Retrieve the user ID from the JWT token
+    current_user = get_jwt_identity()
+    user_id = current_user["id"]
+
     conn = mysql.connection
     cur = conn.cursor(MySQLdb.cursors.DictCursor)
 
@@ -42,7 +44,6 @@ def get_savings():
     today_stats = cur.fetchone()
 
     # 3. STREAK CALCULATION
-    # Fetch all distinct order dates (most recent first)
     cur.execute("""
         SELECT DISTINCT DATE(o.created_at) AS order_date
         FROM orders o
@@ -63,7 +64,6 @@ def get_savings():
         check -= timedelta(days=1)
 
     # If user hasn't ordered today yet, also check from yesterday
-    # (streak is still "alive" if they ordered yesterday)
     if today not in order_dates:
         check = today - timedelta(days=1)
         temp = 0
@@ -103,9 +103,9 @@ def get_savings():
     """, (user_id,))
     recent_orders = cur.fetchall()
 
-    total_saved = int(total_stats["total_saved"])
-    saved_today = int(today_stats["saved_today"])
-    meals = total_stats["meals_rescued"]
+    total_saved = int(total_stats["total_saved"]) if total_stats else 0
+    saved_today = int(today_stats["saved_today"]) if today_stats else 0
+    meals = total_stats["meals_rescued"] if total_stats else 0
 
     formatted_tx = [{
         "icon": "🥗",
@@ -147,4 +147,4 @@ def get_savings():
             {"icon": "🔥", "name": "7-Day Streak",      "desc": "Rescue every day for a week",      "reward": "₹120 Off", "progress": min(streak/7*100, 100), "unlocked": streak >= 7},
         ],
         "transactions": formatted_tx
-    })
+    }), 200
