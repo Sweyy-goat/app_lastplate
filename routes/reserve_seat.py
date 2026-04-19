@@ -1,28 +1,24 @@
-from flask import Blueprint, render_template, request, jsonify
+from flask import Blueprint, request, jsonify
+from flask_jwt_extended import jwt_required, get_jwt_identity
 from utils.db import mysql
 import MySQLdb.cursors
 from app import limiter
 
 reserve_seat_bp = Blueprint("reserve_seat", __name__)
 
-# ================= PAGE =================
-@reserve_seat_bp.route("/reserve-seat", strict_slashes=False)
-def reserve_page():
-    return render_template("restaurant/reserve_seat.html")
-
-
 # ================= API =================
 @reserve_seat_bp.route("/api/reserve-seat", methods=["POST"])
 @limiter.limit("5 per minute")
+@jwt_required() # Ensure only logged-in users from the app can reserve
 def reserve():
     try:
-        # 🔥 Use SAME pattern as your working order.py
         data = request.json
 
         if not data:
             return jsonify({"error": "No data received"}), 400
 
-        # Extract fields
+        # Extract fields from the Flutter payload
+        restaurant_id = data.get("restaurant_id") # ✅ Fixed: Now dynamic
         name = data.get("name")
         email = data.get("email")
         phone = data.get("phone")
@@ -33,8 +29,13 @@ def reserve():
         notes = data.get("notes")
 
         # Validation
-        if not all([name, email, phone, date, time, guests]):
-            return jsonify({"error": "Missing fields"}), 400
+        if not all([restaurant_id, name, email, phone, date, time, guests]):
+            return jsonify({"error": "Missing required fields"}), 400
+
+        # Optional: You can also extract the logged-in user's ID if you want 
+        # to add a `user_id` column to your reservations table later!
+        # current_user = get_jwt_identity()
+        # user_id = current_user["id"]
 
         # DB insert
         cur = mysql.connection.cursor(MySQLdb.cursors.DictCursor)
@@ -44,7 +45,7 @@ def reserve():
             (restaurant_id, name, email, phone, reservation_date, reservation_time, guests, occasion, notes)
             VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s)
         """, (
-            6,  # TEMP HARDCODE (replace later)
+            int(restaurant_id),
             name,
             email,
             phone,
@@ -57,8 +58,8 @@ def reserve():
 
         mysql.connection.commit()
 
-        return jsonify({"success": True})
+        return jsonify({"success": True, "message": "Table reserved successfully!"}), 201
 
     except Exception as e:
         print("RESERVATION ERROR:", e)  # shows in Railway logs
-        return jsonify({"error": "Server error"}), 500
+        return jsonify({"error": "Server error while processing reservation"}), 500
