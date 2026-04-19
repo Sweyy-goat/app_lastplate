@@ -1,3 +1,4 @@
+import config
 from flask import Flask, request, jsonify
 from flask_jwt_extended import (
     JWTManager, create_access_token,
@@ -11,29 +12,30 @@ from datetime import datetime, timedelta
 app = Flask(__name__)
 
 # ================= CONFIG =================
-app.config["JWT_SECRET_KEY"] = "super-secret-key"
+app.config["JWT_SECRET_KEY"] = config.SECRET_KEY
 app.config["JWT_ACCESS_TOKEN_EXPIRES"] = 3600
 
 jwt = JWTManager(app)
 
-# ================= DB CONFIG =================
-db = MySQLdb.connect(
-    host="localhost",
-    user="root",
-    passwd="password",
-    db="your_db",
-    cursorclass=MySQLdb.cursors.DictCursor
-)
 
-# ================= HELPER =================
-def get_cursor():
-    return db.cursor()
+# ================= DB CONNECTION =================
+def get_connection():
+    return MySQLdb.connect(
+        host=config.MYSQL_HOST,
+        user=config.MYSQL_USER,
+        passwd=config.MYSQL_PASSWORD,
+        db=config.MYSQL_DB,
+        port=config.MYSQL_PORT,
+        cursorclass=MySQLdb.cursors.DictCursor
+    )
+
 
 # ================= AUTH =================
 
-# 🔐 SIGNUP
 @app.route("/api/user/signup", methods=["POST"])
 def signup():
+    conn = None
+    cur = None
     try:
         data = request.json
         name = data.get("name")
@@ -44,7 +46,8 @@ def signup():
         if not all([name, email, mobile, password]):
             return jsonify({"status": "error", "message": "All fields required"}), 400
 
-        cur = get_cursor()
+        conn = get_connection()
+        cur = conn.cursor()
 
         cur.execute("SELECT id FROM users WHERE email=%s", (email,))
         if cur.fetchone():
@@ -57,13 +60,11 @@ def signup():
         cur.execute("""
             INSERT INTO users (name, email, mobile, password_hash)
             VALUES (%s, %s, %s, %s)
-        """, (name, email, mobile, password))  # ⚠️ hash in real app
+        """, (name, email, mobile, password))
 
-        db.commit()
+        conn.commit()
 
         user_id = cur.lastrowid
-        cur.close()
-
         token = create_access_token(identity={"id": user_id, "role": "user"})
 
         return jsonify({"status": "success", "token": token})
@@ -71,19 +72,25 @@ def signup():
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
 
+    finally:
+        if cur: cur.close()
+        if conn: conn.close()
 
-# 🔐 LOGIN
+
 @app.route("/api/user/login", methods=["POST"])
 def login():
+    conn = None
+    cur = None
     try:
         data = request.json
         mobile = data.get("mobile")
         password = data.get("password")
 
-        cur = get_cursor()
+        conn = get_connection()
+        cur = conn.cursor()
+
         cur.execute("SELECT id, password_hash FROM users WHERE mobile=%s", (mobile,))
         user = cur.fetchone()
-        cur.close()
 
         if not user or user["password_hash"] != password:
             return jsonify({"status": "error", "message": "Invalid credentials"}), 401
@@ -95,34 +102,48 @@ def login():
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
 
+    finally:
+        if cur: cur.close()
+        if conn: conn.close()
 
-# 👤 PROFILE
+
 @app.route("/api/user/profile", methods=["GET"])
 @jwt_required()
 def profile():
+    conn = None
+    cur = None
     try:
         user = get_jwt_identity()
 
-        cur = get_cursor()
+        conn = get_connection()
+        cur = conn.cursor()
+
         cur.execute("SELECT name, email, mobile FROM users WHERE id=%s", (user["id"],))
         data = cur.fetchone()
-        cur.close()
 
         return jsonify({"status": "success", "data": data})
 
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
 
+    finally:
+        if cur: cur.close()
+        if conn: conn.close()
+
 
 # ================= FOODS =================
+
 @app.route("/api/foods", methods=["GET"])
 @jwt_required()
 def foods():
+    conn = None
+    cur = None
     try:
-        cur = get_cursor()
+        conn = get_connection()
+        cur = conn.cursor()
 
         ist_now = datetime.utcnow() + timedelta(hours=5, minutes=30)
-        time_now = ist_now.strftime('%H:%M:%S')
+        current_time = ist_now.strftime('%H:%M:%S')
 
         cur.execute("""
         SELECT 
@@ -135,7 +156,6 @@ def foods():
         """)
 
         rows = cur.fetchall()
-        cur.close()
 
         result = []
 
@@ -157,6 +177,10 @@ def foods():
 
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
+
+    finally:
+        if cur: cur.close()
+        if conn: conn.close()
 
 
 # ================= RUN =================
