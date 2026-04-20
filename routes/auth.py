@@ -13,13 +13,15 @@ auth_bp = Blueprint("auth", __name__)
 
 
 # ================= DB =================
+import os
+
 def get_connection():
     return MySQLdb.connect(
-        host=config.MYSQL_HOST,
-        user=config.MYSQL_USER,
-        passwd=config.MYSQL_PASSWORD,
-        db=config.MYSQL_DB,
-        port=config.MYSQL_PORT,
+        host=os.getenv("MYSQLHOST"),
+        user=os.getenv("MYSQLUSER"),
+        passwd=os.getenv("MYSQLPASSWORD"),
+        db=os.getenv("MYSQLDATABASE"),
+        port=int(os.getenv("MYSQLPORT")),
         cursorclass=MySQLdb.cursors.DictCursor
     )
 
