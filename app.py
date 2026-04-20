@@ -1,28 +1,34 @@
 from flask import Flask, jsonify
 from flask_cors import CORS
-
 from utils.db import mysql, set_mysql_timezone
-
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 from werkzeug.middleware.proxy_fix import ProxyFix
-
-# 🔥 JWT
 from flask_jwt_extended import JWTManager
-
+import os
 
 app = Flask(__name__)
 
-# 🔥 Enable CORS (Flutter needs this)
+# 🔥 CORS
 CORS(app)
 
-# 🔥 Fix proxy (Railway)
+# 🔥 Proxy fix (Railway)
 app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1)
 
 # 🔥 Load config
 app.config.from_pyfile("config.py")
 
-# 🔥 JWT INIT (VERY IMPORTANT)
+# 🔥 MySQL config (Railway env vars)
+app.config['MYSQL_HOST'] = os.getenv("MYSQLHOST")
+app.config['MYSQL_USER'] = os.getenv("MYSQLUSER")
+app.config['MYSQL_PASSWORD'] = os.getenv("MYSQLPASSWORD")
+app.config['MYSQL_DB'] = os.getenv("MYSQLDATABASE")
+app.config['MYSQL_PORT'] = int(os.getenv("MYSQLPORT"))
+
+# 🔥 Init MySQL (ONLY ONCE)
+mysql.init_app(app)
+
+# 🔥 JWT
 app.config["JWT_SECRET_KEY"] = app.config["SECRET_KEY"]
 jwt = JWTManager(app)
 
@@ -33,20 +39,15 @@ limiter = Limiter(
     default_limits=["100 per minute"]
 )
 
-# 🔥 MySQL init
-mysql.init_app(app)
-
-# 🔥 Secret key for sessions (website)
+# 🔥 Secret key
 app.secret_key = app.config["SECRET_KEY"]
 
-# 🔥 Run DB setup
+# 🔥 DB setup
 with app.app_context():
     try:
         set_mysql_timezone()
     except Exception as e:
         print("Timezone init skipped:", e)
-
-
 # ================= BLUEPRINTS =================
 
 from routes.auth import auth_bp
